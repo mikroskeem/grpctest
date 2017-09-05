@@ -1,0 +1,5 @@
+name: gRPCTest
+version: @version@
+main: eu.mikroskeem.grpctest.Main
+author: mikroskeem
+description: "java -jar this-plugin.jar 127.0.0.1 50005"

@@ -1,0 +1,153 @@
+import org.apache.tools.ant.filters.ReplaceTokens
+
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+
+        maven {
+            url "https://plugins.gradle.org/m2/"
+        }
+    }
+
+    // Build script dependencies
+    dependencies {
+        classpath group: 'com.google.protobuf', name: 'protobuf-gradle-plugin', version: protobuf_plugin_version
+    }
+}
+
+plugins {
+    id 'java'
+    id 'idea'
+    id 'application'
+    id 'org.jetbrains.kotlin.jvm' version '1.1.4'
+    id 'org.zeroturnaround.gradle.jrebel' version '1.1.5'
+    id 'com.github.johnrengelman.shadow' version '2.0.1'
+    id 'net.minecrell.licenser' version '0.3'
+}
+
+apply plugin: 'com.google.protobuf'
+
+group = properties.group
+version = properties.version
+description = properties.description
+startScripts.enabled = false
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+// Kotlin compiler configuration
+compileKotlin {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+        apiVersion = '1.1'
+        languageVersion = '1.1'
+    }
+}
+
+// Protobuf task
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:$protoc_version"
+    }
+    plugins {
+        grpc {
+            artifact = "io.grpc:protoc-gen-grpc-java:$grpc_version"
+        }
+    }
+    generateProtoTasks {
+        all()*.plugins {
+            grpc {}
+        }
+    }
+}
+
+
+// Idea task
+idea {
+    // https://github.com/google/protobuf-gradle-plugin#intellij-idea
+    module {
+        sourceDirs += file("${protobuf.generatedFilesBaseDir}/main/java")
+        sourceDirs += file("${protobuf.generatedFilesBaseDir}/main/grpc")
+    }
+}
+
+// Clean task
+clean {
+    delete protobuf.generatedFilesBaseDir
+}
+
+// Licenser task
+license {
+    header = rootProject.file('etc/HEADER')
+    ignoreFailures = false
+    include "**/*.java"
+    include "**/*.kt"
+}
+
+// Dependency repositories
+repositories {
+    mavenLocal()
+    mavenCentral()
+
+    maven {
+        name = 'destroystokyo-repo'
+        url = 'https://repo.destroystokyo.com/repository/maven-public/'
+    }
+}
+
+// Project dependencies
+dependencies {
+    // Kotlin
+    compile group: 'org.jetbrains.kotlin', name: 'kotlin-stdlib-jre8', version: kotlin_version
+
+    // Paper
+    compileOnly(group: 'com.destroystokyo.paper', name: 'paper-api', version: paper_version) {
+        exclude module: 'bungeecord-chat'
+    }
+    compileOnly group: 'io.netty', name: 'netty-all', version: netty_version
+
+    // gRPC
+    compile group: 'com.google.api.grpc', name: 'proto-google-common-protos', version: common_protos_version
+    compile group: 'io.grpc', name: 'grpc-netty', version: grpc_version
+    compile group: 'io.grpc', name: 'grpc-protobuf', version: grpc_version
+    compile group: 'io.grpc', name: 'grpc-stub', version: grpc_version
+}
+
+// Process plugin resources
+processResources {
+    from(sourceSets.main.resources.srcDirs) {
+        filter ReplaceTokens, tokens: [
+                name: project.name,
+                group: project.group,
+                version: project.version,
+                description: project.description
+        ]
+    }
+}
+
+// Wrapper task
+task wrapper(type: Wrapper) {
+    gradleVersion = gradle_version
+    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradle_version-all.zip"
+}
+
+// ShadowJar
+shadowJar {
+    classifier = 'shaded'
+    relocate 'kotlin', 'eu.mikroskeem.grpctest.kotlin'
+}
+
+    // -PuseJRebel=true
+if(project.hasProperty('useJRebel') && Boolean.parseBoolean(project.getProperties().useJRebel as String)) {
+    jar.dependsOn generateRebel
+} else {
+    // -PdontShade=true
+    if(!(project.hasProperty('dontShade') && Boolean.parseBoolean(project.getProperties().dontShade as String)))
+        build.dependsOn shadowJar
+}
+
+defaultTasks 'build'
