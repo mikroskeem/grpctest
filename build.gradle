@@ -20,10 +20,11 @@ plugins {
     id 'java'
     id 'idea'
     id 'application'
-    id 'org.jetbrains.kotlin.jvm' version '1.1.4'
+    id 'org.jetbrains.kotlin.jvm' version '1.1.4-2'
     id 'org.zeroturnaround.gradle.jrebel' version '1.1.5'
     id 'com.github.johnrengelman.shadow' version '2.0.1'
     id 'net.minecrell.licenser' version '0.3'
+    //id 'com.google.protobuf' version '0.8.3'
 }
 
 apply plugin: 'com.google.protobuf'
@@ -31,10 +32,22 @@ apply plugin: 'com.google.protobuf'
 group = properties.group
 version = properties.version
 description = properties.description
+mainClassName = "eu.mikroskeem.grpctest.App"
 startScripts.enabled = false
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
+
+// Sourcesets
+sourceSets {
+    main {
+        java {
+            srcDir 'src/main/java'
+            srcDir "${protobuf.generatedFilesBaseDir}/main/java"
+            srcDir "${protobuf.generatedFilesBaseDir}/main/grpc"
+        }
+    }
+}
 
 // Kotlin compiler configuration
 compileKotlin {
@@ -86,6 +99,8 @@ license {
     ignoreFailures = false
     include "**/*.java"
     include "**/*.kt"
+
+    exclude "**/proto/**.java"
 }
 
 // Dependency repositories
@@ -149,5 +164,7 @@ if(project.hasProperty('useJRebel') && Boolean.parseBoolean(project.getPropertie
     if(!(project.hasProperty('dontShade') && Boolean.parseBoolean(project.getProperties().dontShade as String)))
         build.dependsOn shadowJar
 }
+
+//compileKotlin.dependsOn generateProto
 
 defaultTasks 'build'
